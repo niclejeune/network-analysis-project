@@ -19,6 +19,7 @@ DATA_DIR = "data"  # Directory containing .edges files
 RESULTS_DIR = "results"  # Directory to save CSV results
 GRAPHS_DIR = "graphs"  # Directory to save generated graphs
 LOGS_DIR = "logs"  # Directory to save log files
+SUMMARY_FILE = os.path.join(RESULTS_DIR, "network_summary.csv")
 
 # Create output directories if they don't exist
 os.makedirs(RESULTS_DIR, exist_ok=True)
@@ -337,77 +338,55 @@ def collect_spread_sizes(results: Dict[int, List[int]]) -> List[int]:
 def perform_statistical_analysis(
         bridge_spread_sizes: List[int],
         high_degree_spread_sizes: List[int],
-        random_spread_sizes: List[int]
+        random_spread_sizes: List[int],
+        has_high_degree_not_in_hcc: bool
 ) -> Dict[str, Tuple[Any, Any]]:
     """
-    Perform ANOVA and T-tests on spread size data across different node groups.
-
-    Parameters:
-    - bridge_spread_sizes (List[int]): Spread sizes from bridge nodes.
-    - high_degree_spread_sizes (List[int]): Spread sizes from high-degree nodes not in HCC.
-    - random_spread_sizes (List[int]): Spread sizes from random nodes.
-
-    Returns:
-    - Dict[str, Tuple[Any, Any]]: Dictionary containing test statistics and p-values.
+    Perform statistical analysis, skipping tests for high-degree nodes if none exist.
     """
     stats = {}
-    # Ensure each group has at least 2 samples for meaningful statistical tests
-    if (len(bridge_spread_sizes) >= 2 and
-            len(high_degree_spread_sizes) >= 2 and
-            len(random_spread_sizes) >= 2):
-
-        # Perform one-way ANOVA to compare means across all groups
+    
+    # Always perform Bridge vs Random comparison if both have data
+    if len(bridge_spread_sizes) >= 2 and len(random_spread_sizes) >= 2:
         try:
-            F_statistic, p_value = f_oneway(
-                bridge_spread_sizes,
-                high_degree_spread_sizes,
-                random_spread_sizes
-            )
-            stats["ANOVA"] = (F_statistic, p_value)
-        except Exception as e:
-            logging.warning(f"ANOVA failed: {e}")
-            stats["ANOVA"] = (np.nan, np.nan)
+            # Perform ANOVA only if we have high degree nodes
+            if has_high_degree_not_in_hcc and len(high_degree_spread_sizes) >= 2:
+                F_statistic, p_value = f_oneway(
+                    bridge_spread_sizes,
+                    high_degree_spread_sizes,
+                    random_spread_sizes
+                )
+                stats["ANOVA"] = (F_statistic, p_value)
 
-        # Perform independent T-tests between pairs of groups
-        try:
-            t_statistic1, p_value1 = ttest_ind(
-                bridge_spread_sizes,
-                high_degree_spread_sizes,
-                equal_var=False
-            )
-            stats["T-test Bridge vs High-Degree"] = (t_statistic1, p_value1)
-        except Exception as e:
-            logging.warning(f"T-test Bridge vs High-Degree failed: {e}")
-            stats["T-test Bridge vs High-Degree"] = (np.nan, np.nan)
-
-        try:
+            # Bridge vs Random test
             t_statistic2, p_value2 = ttest_ind(
                 bridge_spread_sizes,
                 random_spread_sizes,
                 equal_var=False
             )
             stats["T-test Bridge vs Random"] = (t_statistic2, p_value2)
-        except Exception as e:
-            logging.warning(f"T-test Bridge vs Random failed: {e}")
-            stats["T-test Bridge vs Random"] = (np.nan, np.nan)
 
-        try:
-            t_statistic3, p_value3 = ttest_ind(
-                high_degree_spread_sizes,
-                random_spread_sizes,
-                equal_var=False
-            )
-            stats["T-test High-Degree vs Random"] = (t_statistic3, p_value3)
+            # Only perform high-degree related tests if we have high degree nodes
+            if has_high_degree_not_in_hcc and len(high_degree_spread_sizes) >= 2:
+                t_statistic1, p_value1 = ttest_ind(
+                    bridge_spread_sizes,
+                    high_degree_spread_sizes,
+                    equal_var=False
+                )
+                stats["T-test Bridge vs High-Degree"] = (t_statistic1, p_value1)
+
+                t_statistic3, p_value3 = ttest_ind(
+                    high_degree_spread_sizes,
+                    random_spread_sizes,
+                    equal_var=False
+                )
+                stats["T-test High-Degree vs Random"] = (t_statistic3, p_value3)
+
         except Exception as e:
-            logging.warning(f"T-test High-Degree vs Random failed: {e}")
-            stats["T-test High-Degree vs Random"] = (np.nan, np.nan)
+            logging.warning(f"Statistical test failed: {e}")
     else:
-        # Not enough samples to perform statistical tests
         logging.warning("Not enough samples for statistical analysis.")
-        stats["ANOVA"] = (np.nan, np.nan)
-        stats["T-test Bridge vs High-Degree"] = (np.nan, np.nan)
-        stats["T-test Bridge vs Random"] = (np.nan, np.nan)
-        stats["T-test High-Degree vs Random"] = (np.nan, np.nan)
+    
     return stats
 
 
@@ -498,18 +477,9 @@ def visualize_results(
 # Function to process a single node_id
 # =============================================================================
 
-def process_node_id(node_id: int) -> None:
+def process_node_id(node_id: int, summary_data: List[dict]) -> None:
     """
-    Perform the complete analysis pipeline for a single node ID.
-
-    This includes loading data, constructing the graph, calculating metrics,
-    simulating information spread, performing statistical analysis, and saving results.
-
-    Parameters:
-    - node_id (int): The node ID to process.
-
-    Returns:
-    - None
+    Process a single node ID and update summary data.
     """
     try:
         # Load edges from the .edges file
@@ -603,11 +573,21 @@ def process_node_id(node_id: int) -> None:
         high_degree_spread_sizes = collect_spread_sizes(high_degree_results)
         random_spread_sizes = collect_spread_sizes(random_results)
 
+        # Track whether this network has high degree nodes not in HCC
+        has_high_degree_not_in_hcc = len(high_degree_nodes_not_in_hcc) > 0
+        
+        # Add to summary data
+        summary_data.append({
+            "network_id": node_id,
+            "has_high_degree_not_in_hcc": has_high_degree_not_in_hcc
+        })
+
         # Perform statistical analysis on spread sizes
         stats = perform_statistical_analysis(
             bridge_spread_sizes,
             high_degree_spread_sizes,
-            random_spread_sizes
+            random_spread_sizes,
+            has_high_degree_not_in_hcc
         )
 
         # Calculate basic spread statistics for each group
@@ -623,7 +603,7 @@ def process_node_id(node_id: int) -> None:
             node_id
         )
 
-        # Prepare results data for CSV
+        # Initialize results data only with groups that have nodes
         results_data = {
             "Group": [],
             "Average Spread Size": [],
@@ -633,94 +613,188 @@ def process_node_id(node_id: int) -> None:
             "Maximum Spread Size": []
         }
 
-        # Populate results data for Bridge Nodes
-        if bridge_spread_sizes:
-            results_data["Group"].append("Bridge Nodes")
-            results_data["Average Spread Size"].append(bridge_stats["Average Spread Size"])
-            results_data["Median Spread Size"].append(bridge_stats["Median Spread Size"])
-            results_data["Standard Deviation"].append(bridge_stats["Standard Deviation"])
-            results_data["Minimum Spread Size"].append(bridge_stats["Minimum Spread Size"])
-            results_data["Maximum Spread Size"].append(bridge_stats["Maximum Spread Size"])
-        else:
-            results_data["Group"].append("Bridge Nodes")
-            results_data["Average Spread Size"].append(np.nan)
-            results_data["Median Spread Size"].append(np.nan)
-            results_data["Standard Deviation"].append(np.nan)
-            results_data["Minimum Spread Size"].append(np.nan)
-            results_data["Maximum Spread Size"].append(np.nan)
+        # Helper function to add stats for a group
+        def add_group_stats(group_name: str, stats_dict: dict, spread_sizes: list) -> None:
+            """Helper function to add stats for a group if it has data"""
+            print(f"\nChecking group stats for {group_name}:")
+            print(f"Stats dict: {stats_dict}")
+            print(f"Spread sizes length: {len(spread_sizes)}")
+            
+            if spread_sizes:  # Only add the group if it has spread sizes
+                results_data["Group"].append(group_name)
+                for key in ["Average Spread Size", "Median Spread Size", "Standard Deviation", 
+                           "Minimum Spread Size", "Maximum Spread Size"]:
+                    value = stats_dict[key]
+                    print(f"Adding {key}: {value}")
+                    results_data[key].append(value)
+            else:
+                print(f"Skipping {group_name} - no spread sizes")
 
-        # Populate results data for High-Degree Nodes Not in HCC
-        if high_degree_spread_sizes:
-            results_data["Group"].append("High-Degree Nodes Not in HCC")
-            results_data["Average Spread Size"].append(high_degree_stats["Average Spread Size"])
-            results_data["Median Spread Size"].append(high_degree_stats["Median Spread Size"])
-            results_data["Standard Deviation"].append(high_degree_stats["Standard Deviation"])
-            results_data["Minimum Spread Size"].append(high_degree_stats["Minimum Spread Size"])
-            results_data["Maximum Spread Size"].append(high_degree_stats["Maximum Spread Size"])
-        else:
-            results_data["Group"].append("High-Degree Nodes Not in HCC")
-            results_data["Average Spread Size"].append(np.nan)
-            results_data["Median Spread Size"].append(np.nan)
-            results_data["Standard Deviation"].append(np.nan)
-            results_data["Minimum Spread Size"].append(np.nan)
-            results_data["Maximum Spread Size"].append(np.nan)
+        # Add stats only for groups that have nodes
+        if bridge_nodes:
+            add_group_stats("Bridge Nodes", bridge_stats, bridge_spread_sizes)
+        if high_degree_nodes_not_in_hcc:
+            add_group_stats("High-Degree Nodes Not in HCC", high_degree_stats, high_degree_spread_sizes)
+        if random_nodes:
+            add_group_stats("Random Nodes", random_stats, random_spread_sizes)
 
-        # Populate results data for Random Nodes
-        if random_spread_sizes:
-            results_data["Group"].append("Random Nodes")
-            results_data["Average Spread Size"].append(np.mean(random_spread_sizes))
-            results_data["Median Spread Size"].append(np.median(random_spread_sizes))
-            results_data["Standard Deviation"].append(np.std(random_spread_sizes))
-            results_data["Minimum Spread Size"].append(np.min(random_spread_sizes))
-            results_data["Maximum Spread Size"].append(np.max(random_spread_sizes))
-        else:
-            results_data["Group"].append("Random Nodes")
-            results_data["Average Spread Size"].append(np.nan)
-            results_data["Median Spread Size"].append(np.nan)
-            results_data["Standard Deviation"].append(np.nan)
-            results_data["Minimum Spread Size"].append(np.nan)
-            results_data["Maximum Spread Size"].append(np.nan)
+        # Validate that we have at least one group with data
+        if not results_data["Group"]:
+            raise ValueError("No groups have any spread data to analyze")
 
-        # Convert results data to a pandas DataFrame
+        # Add validation before creating DataFrames
+        def validate_results_data(data):
+            # Print full state when validation starts
+            print("\nValidating results data:")
+            print("\nInput data state:")
+            for key, value in data.items():
+                print(f"{key}: {value}")
+            
+            # Check all lists have same length as groups
+            expected_length = len(data["Group"])
+            for key, value in data.items():
+                if len(value) != expected_length:
+                    raise ValueError(f"Inconsistent length for {key}: expected {expected_length}, got {len(value)}")
+            
+            # Check for any NaN or None values with detailed debugging
+            for key, value in data.items():
+                if key != "Group":  # Skip group names
+                    if any(pd.isna(x) for x in value):
+                        print("\nDetailed state at failure:")
+                        print(f"\nFull results_data:")
+                        for k, v in data.items():
+                            print(f"{k}: {v}")
+                        print(f"\nStats objects state:")
+                        print(f"bridge_stats: {bridge_stats}")
+                        print(f"high_degree_stats: {high_degree_stats}")
+                        print(f"random_stats: {random_stats}")
+                        print(f"\nSpread sizes state:")
+                        print(f"bridge_spread_sizes: {len(bridge_spread_sizes)} items")
+                        print(f"high_degree_spread_sizes: {len(high_degree_spread_sizes)} items")
+                        print(f"random_spread_sizes: {len(random_spread_sizes)} items")
+                        print(f"\nNode counts:")
+                        print(f"bridge_nodes: {len(bridge_nodes)}")
+                        print(f"high_degree_nodes_not_in_hcc: {len(high_degree_nodes_not_in_hcc)}")
+                        print(f"random_nodes: {len(random_nodes)}")
+                        print(f"\nGraph info:")
+                        print(f"Total nodes: {G.number_of_nodes()}")
+                        print(f"Total edges: {G.number_of_edges()}")
+                        print(f"Number of communities: {len(set(partition.values()))}")
+                        print(f"Number of highly clustered communities: {len(highly_clustered_communities)}")
+                        
+                        raise ValueError(f"Found NaN values in {key}: {value}\nCheck detailed state above.")
+
+        def validate_stats_data(stats_list):
+            for stat_dict in stats_list:
+                if any(pd.isna(v) for v in stat_dict.values()):
+                    raise ValueError(f"Found NaN values in statistical test: {stat_dict}")
+
+        # Before creating DataFrames, validate the data
+        try:
+            validate_results_data(results_data)
+        except ValueError as e:
+            logging.error(f"Data validation failed for spread statistics: {str(e)}")
+            print(f"Data validation failed for spread statistics: {str(e)}")
+            raise
+
+        # Create stats data with validation
+        stats_data = [
+            {
+                "Test": test_name,
+                "Statistic": stats.get(test_name, (np.nan, np.nan))[0],
+                "p-value": stats.get(test_name, (np.nan, np.nan))[1]
+            }
+            for test_name in stats.keys()
+        ]
+
+        try:
+            validate_stats_data(stats_data)
+        except ValueError as e:
+            logging.error(f"Data validation failed for statistical tests: {str(e)}")
+            print(f"Data validation failed for statistical tests: {str(e)}")
+            raise
+
+        # Convert to DataFrames
         results_df = pd.DataFrame(results_data)
+        stats_df = pd.DataFrame(stats_data)
 
-        # Prepare statistical test results for CSV
-        stats_df = pd.DataFrame([
-            {
-                "Test": "ANOVA",
-                "Statistic": stats["ANOVA"][0],
-                "p-value": stats["ANOVA"][1]
-            },
-            {
-                "Test": "T-test Bridge vs High-Degree",
-                "Statistic": stats["T-test Bridge vs High-Degree"][0],
-                "p-value": stats["T-test Bridge vs High-Degree"][1]
-            },
-            {
-                "Test": "T-test Bridge vs Random",
-                "Statistic": stats["T-test Bridge vs Random"][0],
-                "p-value": stats["T-test Bridge vs Random"][1]
-            },
-            {
-                "Test": "T-test High-Degree vs Random",
-                "Statistic": stats["T-test High-Degree vs Random"][0],
-                "p-value": stats["T-test High-Degree vs Random"][1]
-            },
-        ])
+        # Print each row being written to CSVs
+        print(f"\nWriting spread statistics for Node ID {node_id}:")
+        for idx, row in results_df.iterrows():
+            print(f"Row {idx}: {dict(row)}")
 
-        # Define paths for saving results
+        print(f"\nWriting statistical tests for Node ID {node_id}:")
+        for idx, row in stats_df.iterrows():
+            print(f"Row {idx}: {dict(row)}")
+
+        # Save to CSV with verification
         results_csv_path = os.path.join(RESULTS_DIR, f"{node_id}_spread_statistics.csv")
         stats_csv_path = os.path.join(RESULTS_DIR, f"{node_id}_statistical_tests.csv")
 
-        # Save spread statistics and statistical test results to CSV files
-        results_df.to_csv(results_csv_path, index=False)
-        stats_df.to_csv(stats_csv_path, index=False)
+        # Save with specific float format to maintain precision
+        results_df.to_csv(results_csv_path, index=False, float_format='%.10f')
+        stats_df.to_csv(stats_csv_path, index=False, float_format='%.10f')
 
-        # Log completion of analysis for the current node ID
-        logging.info(f"Completed analysis for Node ID {node_id}")
+        # Verify files were written correctly
+        try:
+            # Read back and verify
+            read_results = pd.read_csv(results_csv_path)
+            read_stats = pd.read_csv(stats_csv_path)
+            
+            def compare_dataframes(df1, df2, name):
+                """Compare DataFrames with tolerance for floating point numbers"""
+                if df1.shape != df2.shape:
+                    raise ValueError(f"{name}: Shape mismatch {df1.shape} vs {df2.shape}")
+                
+                for col in df1.columns:
+                    if df1[col].dtype.kind in 'fc':  # float or complex
+                        if not np.allclose(df1[col].fillna(0), df2[col].fillna(0), rtol=1e-10, atol=1e-10):
+                            print(f"Mismatch in {name} column {col}:")
+                            print(f"Original:\n{df1[col]}")
+                            print(f"Read back:\n{df2[col]}")
+                            raise ValueError(f"{name}: Numerical mismatch in column {col}")
+                    else:
+                        if not (df1[col].fillna('') == df2[col].fillna('')).all():
+                            print(f"Mismatch in {name} column {col}:")
+                            print(f"Original:\n{df1[col]}")
+                            print(f"Read back:\n{df2[col]}")
+                            raise ValueError(f"{name}: Non-numerical mismatch in column {col}")
+            
+            compare_dataframes(results_df, read_results, "Spread statistics")
+            compare_dataframes(stats_df, read_stats, "Statistical tests")
+                
+            logging.info(f"Successfully saved and verified results for Node ID {node_id}")
+            
+        except Exception as e:
+            logging.error(f"File verification failed for Node ID {node_id}: {str(e)}")
+            print(f"File verification failed for Node ID {node_id}: {str(e)}")
+            print("\nOriginal results_df:")
+            print(results_df)
+            print("\nRead results_df:")
+            print(read_results)
+            print("\nOriginal stats_df:")
+            print(stats_df)
+            print("\nRead stats_df:")
+            print(read_stats)
+            raise
+
     except Exception as e:
-        logging.error(f"Error processing Node ID {node_id}: {e}")
-        print(f"Error processing Node ID {node_id}: {e}")
+        logging.error(f"Error processing Node ID {node_id}: {str(e)}")
+        # Create empty results files with headers to maintain consistency
+        try:
+            # Create empty spread statistics file
+            pd.DataFrame(columns=[
+                "Group", "Average Spread Size", "Median Spread Size",
+                "Standard Deviation", "Minimum Spread Size", "Maximum Spread Size"
+            ]).to_csv(os.path.join(RESULTS_DIR, f"{node_id}_spread_statistics.csv"), index=False)
+
+            # Create empty statistical tests file
+            pd.DataFrame(columns=["Test", "Statistic", "p-value"]).to_csv(
+                os.path.join(RESULTS_DIR, f"{node_id}_statistical_tests.csv"), index=False
+            )
+            logging.info(f"Created empty result files for Node ID {node_id}")
+        except Exception as write_error:
+            logging.error(f"Failed to create empty result files for Node ID {node_id}: {str(write_error)}")
 
 # =============================================================================
 # Main Function to Process All Node IDs
@@ -729,16 +803,11 @@ def process_node_id(node_id: int) -> None:
 
 def main() -> None:
     """
-    Main function to detect all node IDs in the data directory and perform analysis on each.
-
-    This function scans the DATA_DIR for all .edges files, extracts node IDs, and processes each
-    node ID by running the analysis pipeline. Results are saved to the RESULTS_DIR and GRAPHS_DIR,
-    and logs are recorded in the LOGS_DIR.
-
-    Returns:
-    - None
+    Main function with summary data collection.
     """
     node_ids = []
+    summary_data = []  # List to collect summary data for all networks
+    
     # Iterate over all files in the data directory
     for filename in os.listdir(DATA_DIR):
         if filename.endswith(".edges"):
@@ -762,7 +831,12 @@ def main() -> None:
 
     # Process each node_id with a progress bar
     for node_id in tqdm(node_ids, desc="Processing Node IDs"):
-        process_node_id(node_id)
+        process_node_id(node_id, summary_data)
+
+    # Create summary CSV
+    summary_df = pd.DataFrame(summary_data)
+    summary_df.to_csv(SUMMARY_FILE, index=False)
+    logging.info(f"Created summary file at {SUMMARY_FILE}")
 
 
 # =============================================================================

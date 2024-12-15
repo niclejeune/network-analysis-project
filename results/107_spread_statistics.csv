@@ -1,4 +1,3 @@
 Group,Average Spread Size,Median Spread Size,Standard Deviation,Minimum Spread Size,Maximum Spread Size
-Bridge Nodes,855.8782857142858,857.0,14.654485577372375,776.0,903.0
-High-Degree Nodes Not in HCC,,,,,
-Random Nodes,717.9064761904762,854.0,314.61013487741104,1.0,901.0
+Bridge Nodes,855.8782857143,857.0000000000,14.6544855774,776,903
+Random Nodes,717.9064761905,854.0000000000,314.6101348774,1,901

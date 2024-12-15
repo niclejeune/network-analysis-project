@@ -1,5 +1,2 @@
 Test,Statistic,p-value
-ANOVA,,
-T-test Bridge vs High-Degree,,
-T-test Bridge vs Random,,
-T-test High-Degree vs Random,,
+T-test Bridge vs Random,36.0334795068,0.0000000000
