@@ -1,0 +1,23 @@
+Test,Statistic,p-value,Node ID,HCC
+ANOVA,1662.595,0,0,Not HCC
+T-test Bridge vs Random,53.63151,0,0,Not HCC
+T-test Bridge vs High-Degree,-0.32681,0.743905,0,Not HCC
+T-test High-Degree vs Random,47.3205,0,0,Not HCC
+T-test Bridge vs Random,44.88704,0,107,HCC
+T-test Bridge vs Random,29.74129,0,384,HCC
+T-test Bridge vs Random,24.20315,0,414,HCC
+T-test Bridge vs Random,36.03348,0,686,HCC
+T-test Bridge vs Random,10.97536,0,689,HCC
+ANOVA,1209.017,0,1684,Not HCC
+T-test Bridge vs Random,48.85092,0,1684,Not HCC
+T-test Bridge vs High-Degree,-2.22007,0.028494,1684,Not HCC
+T-test High-Degree vs Random,45.91885,0,1684,Not HCC
+T-test Bridge vs Random,30.32171,0,1912,HCC
+ANOVA,2455.819,0,3437,Not HCC
+T-test Bridge vs Random,49.39108,0,3437,Not HCC
+T-test Bridge vs High-Degree,-0.92148,0.356839,3437,Not HCC
+T-test High-Degree vs Random,50.98683,0,3437,Not HCC
+ANOVA,46.72971,0,3980,Not HCC
+T-test Bridge vs Random,9.523293,0,3980,Not HCC
+T-test Bridge vs High-Degree,3.810197,0.000208,3980,Not HCC
+T-test High-Degree vs Random,1.134114,0.258907,3980,Not HCC

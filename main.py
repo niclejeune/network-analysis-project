@@ -28,16 +28,17 @@ os.makedirs(LOGS_DIR, exist_ok=True)
 
 # Configure logging to record warnings and errors
 logging.basicConfig(
-    filename=os.path.join(LOGS_DIR, 'network_analysis.log'),  # Log file path
-    filemode='a',  # Append mode
-    format='%(asctime)s - %(levelname)s - %(message)s',  # Log message format
-    level=logging.INFO  # Logging level
+    filename=os.path.join(LOGS_DIR, "network_analysis.log"),  # Log file path
+    filemode="a",  # Append mode
+    format="%(asctime)s - %(levelname)s - %(message)s",  # Log message format
+    level=logging.INFO,  # Logging level
 )
 
 
 # =============================================================================
 # 2. Load Data and Construct Graph
 # =============================================================================
+
 
 def load_edges(filename: str) -> List[Tuple[int, int]]:
     """
@@ -53,7 +54,7 @@ def load_edges(filename: str) -> List[Tuple[int, int]]:
     """
     edges = []
     try:
-        with open(filename, 'r') as file:
+        with open(filename, "r") as file:
             for line in file:
                 parts = line.strip().split()
                 if len(parts) == 2:
@@ -84,6 +85,7 @@ def construct_graph(edges: List[Tuple[int, int]], ego_node: int) -> nx.Graph:
 # =============================================================================
 # 5. Calculate Average Clustering Coefficient Within Communities
 # =============================================================================
+
 
 def calculate_community_clustering(graph: nx.Graph, partition: Dict[int, int]) -> Dict[int, float]:
     """
@@ -123,8 +125,10 @@ def calculate_community_clustering(graph: nx.Graph, partition: Dict[int, int]) -
 # 6. Identify Highly Clustered Communities
 # =============================================================================
 
-def get_highly_clustered_communities(community_clustering: Dict[int, float], network_avg_clustering: float) -> List[
-    int]:
+
+def get_highly_clustered_communities(
+    community_clustering: Dict[int, float], network_avg_clustering: float
+) -> List[int]:
     """
     Identify communities with average clustering coefficient above the network's average.
 
@@ -136,7 +140,8 @@ def get_highly_clustered_communities(community_clustering: Dict[int, float], net
     - List[int]: A list of community IDs that are highly clustered.
     """
     highly_clustered_communities = [
-        community_id for community_id, avg_clustering in community_clustering.items()
+        community_id
+        for community_id, avg_clustering in community_clustering.items()
         if avg_clustering > network_avg_clustering
     ]
     return highly_clustered_communities
@@ -145,6 +150,7 @@ def get_highly_clustered_communities(community_clustering: Dict[int, float], net
 # =============================================================================
 # 7. Identify High-Degree Nodes (Top 10%)
 # =============================================================================
+
 
 def get_high_degree_nodes(degrees: Dict[int, int], percentile: float = 90) -> List[int]:
     """
@@ -169,8 +175,10 @@ def get_high_degree_nodes(degrees: Dict[int, int], percentile: float = 90) -> Li
 # 8. Identify Bridge Nodes
 # =============================================================================
 
-def get_bridge_nodes(high_degree_nodes: List[int], partition: Dict[int, int],
-                     highly_clustered_communities: List[int]) -> List[int]:
+
+def get_bridge_nodes(
+    high_degree_nodes: List[int], partition: Dict[int, int], highly_clustered_communities: List[int]
+) -> List[int]:
     """
     Identify bridge nodes which are high-degree nodes within highly clustered communities.
 
@@ -182,10 +190,7 @@ def get_bridge_nodes(high_degree_nodes: List[int], partition: Dict[int, int],
     Returns:
     - List[int]: List of bridge node IDs.
     """
-    bridge_nodes = [
-        node for node in high_degree_nodes
-        if partition.get(node) in highly_clustered_communities
-    ]
+    bridge_nodes = [node for node in high_degree_nodes if partition.get(node) in highly_clustered_communities]
     return bridge_nodes
 
 
@@ -193,10 +198,9 @@ def get_bridge_nodes(high_degree_nodes: List[int], partition: Dict[int, int],
 # 9. Identify High-Degree Nodes Not in Highly Clustered Communities
 # =============================================================================
 
+
 def get_high_degree_nodes_not_in_highly_clustered_communities(
-        high_degree_nodes: List[int],
-        partition: Dict[int, int],
-        highly_clustered_communities: List[int]
+    high_degree_nodes: List[int], partition: Dict[int, int], highly_clustered_communities: List[int]
 ) -> List[int]:
     """
     Identify high-degree nodes that are not part of highly clustered communities.
@@ -209,16 +213,14 @@ def get_high_degree_nodes_not_in_highly_clustered_communities(
     Returns:
     - List[int]: List of high-degree node IDs not in highly clustered communities.
     """
-    nodes = [
-        node for node in high_degree_nodes
-        if partition.get(node) not in highly_clustered_communities
-    ]
+    nodes = [node for node in high_degree_nodes if partition.get(node) not in highly_clustered_communities]
     return nodes
 
 
 # =============================================================================
 # 10. Select Random Nodes
 # =============================================================================
+
 
 def get_random_nodes(graph: nx.Graph, num_nodes: int) -> List[int]:
     """
@@ -241,11 +243,9 @@ def get_random_nodes(graph: nx.Graph, num_nodes: int) -> List[int]:
 # 11. Define the Independent Cascade Model Function
 # =============================================================================
 
+
 def independent_cascade(
-        graph: nx.Graph,
-        seeds: List[int],
-        propagation_prob: float = 0.1,
-        max_steps: int = None
+    graph: nx.Graph, seeds: List[int], propagation_prob: float = 0.1, max_steps: int = None
 ) -> List[int]:
     """
     Simulate the Independent Cascade Model for information spread.
@@ -281,11 +281,9 @@ def independent_cascade(
 # 12. Define Simulation Function
 # =============================================================================
 
+
 def simulate_spread(
-        graph: nx.Graph,
-        seed_nodes: List[int],
-        num_simulations: int = 100,
-        propagation_prob: float = 0.1
+    graph: nx.Graph, seed_nodes: List[int], num_simulations: int = 100, propagation_prob: float = 0.1
 ) -> Dict[int, List[int]]:
     """
     Simulate the spread of information from multiple seed nodes.
@@ -303,9 +301,7 @@ def simulate_spread(
     for seed in seed_nodes:
         spread_sizes = []
         for _ in range(num_simulations):
-            activated_nodes = independent_cascade(
-                graph, seeds=[seed], propagation_prob=propagation_prob
-            )
+            activated_nodes = independent_cascade(graph, seeds=[seed], propagation_prob=propagation_prob)
             spread_sizes.append(len(activated_nodes))
         results[seed] = spread_sizes
     return results
@@ -314,6 +310,7 @@ def simulate_spread(
 # =============================================================================
 # 14. Collect Spread Sizes
 # =============================================================================
+
 
 def collect_spread_sizes(results: Dict[int, List[int]]) -> List[int]:
     """
@@ -335,64 +332,50 @@ def collect_spread_sizes(results: Dict[int, List[int]]) -> List[int]:
 # 15. Perform Statistical Analysis
 # =============================================================================
 
+
 def perform_statistical_analysis(
-        bridge_spread_sizes: List[int],
-        high_degree_spread_sizes: List[int],
-        random_spread_sizes: List[int],
-        has_high_degree_not_in_hcc: bool
+    bridge_spread_sizes: List[int],
+    high_degree_spread_sizes: List[int],
+    random_spread_sizes: List[int],
+    has_high_degree_not_in_hcc: bool,
 ) -> Dict[str, Tuple[Any, Any]]:
     """
     Perform statistical analysis, skipping tests for high-degree nodes if none exist.
     """
     stats = {}
-    
+
     # Always perform Bridge vs Random comparison if both have data
     if len(bridge_spread_sizes) >= 2 and len(random_spread_sizes) >= 2:
         try:
             # Perform ANOVA only if we have high degree nodes
             if has_high_degree_not_in_hcc and len(high_degree_spread_sizes) >= 2:
-                F_statistic, p_value = f_oneway(
-                    bridge_spread_sizes,
-                    high_degree_spread_sizes,
-                    random_spread_sizes
-                )
+                F_statistic, p_value = f_oneway(bridge_spread_sizes, high_degree_spread_sizes, random_spread_sizes)
                 stats["ANOVA"] = (F_statistic, p_value)
 
             # Bridge vs Random test
-            t_statistic2, p_value2 = ttest_ind(
-                bridge_spread_sizes,
-                random_spread_sizes,
-                equal_var=False
-            )
+            t_statistic2, p_value2 = ttest_ind(bridge_spread_sizes, random_spread_sizes, equal_var=False)
             stats["T-test Bridge vs Random"] = (t_statistic2, p_value2)
 
             # Only perform high-degree related tests if we have high degree nodes
             if has_high_degree_not_in_hcc and len(high_degree_spread_sizes) >= 2:
-                t_statistic1, p_value1 = ttest_ind(
-                    bridge_spread_sizes,
-                    high_degree_spread_sizes,
-                    equal_var=False
-                )
+                t_statistic1, p_value1 = ttest_ind(bridge_spread_sizes, high_degree_spread_sizes, equal_var=False)
                 stats["T-test Bridge vs High-Degree"] = (t_statistic1, p_value1)
 
-                t_statistic3, p_value3 = ttest_ind(
-                    high_degree_spread_sizes,
-                    random_spread_sizes,
-                    equal_var=False
-                )
+                t_statistic3, p_value3 = ttest_ind(high_degree_spread_sizes, random_spread_sizes, equal_var=False)
                 stats["T-test High-Degree vs Random"] = (t_statistic3, p_value3)
 
         except Exception as e:
             logging.warning(f"Statistical test failed: {e}")
     else:
         logging.warning("Not enough samples for statistical analysis.")
-    
+
     return stats
 
 
 # =============================================================================
 # 16. Get Spread Statistics for Each Group
 # =============================================================================
+
 
 def get_spread_statistics(spread_sizes: List[int]) -> Dict[str, float]:
     """
@@ -410,14 +393,14 @@ def get_spread_statistics(spread_sizes: List[int]) -> Dict[str, float]:
             "Median Spread Size": np.nan,
             "Standard Deviation": np.nan,
             "Minimum Spread Size": np.nan,
-            "Maximum Spread Size": np.nan
+            "Maximum Spread Size": np.nan,
         }
     return {
         "Average Spread Size": np.mean(spread_sizes),
         "Median Spread Size": np.median(spread_sizes),
         "Standard Deviation": np.std(spread_sizes),
         "Minimum Spread Size": np.min(spread_sizes),
-        "Maximum Spread Size": np.max(spread_sizes)
+        "Maximum Spread Size": np.max(spread_sizes),
     }
 
 
@@ -425,11 +408,9 @@ def get_spread_statistics(spread_sizes: List[int]) -> Dict[str, float]:
 # 17. Visualize the Results
 # =============================================================================
 
+
 def visualize_results(
-        bridge_spread_sizes: List[int],
-        high_degree_spread_sizes: List[int],
-        random_spread_sizes: List[int],
-        node_id: int
+    bridge_spread_sizes: List[int], high_degree_spread_sizes: List[int], random_spread_sizes: List[int], node_id: int
 ) -> None:
     """
     Generate and save a boxplot visualizing spread size distributions across different node groups.
@@ -448,13 +429,13 @@ def visualize_results(
     # Append data and labels for each group if data is available
     if bridge_spread_sizes:
         data.append(bridge_spread_sizes)
-        labels.append('Bridge Nodes')
+        labels.append("Bridge Nodes")
     if high_degree_spread_sizes:
         data.append(high_degree_spread_sizes)
-        labels.append('High-Degree Nodes Not in HCC')
+        labels.append("High-Degree Nodes Not in HCC")
     if random_spread_sizes:
         data.append(random_spread_sizes)
-        labels.append('Random Nodes')
+        labels.append("Random Nodes")
 
     # If no data is available for any group, skip plotting
     if not data:
@@ -464,9 +445,9 @@ def visualize_results(
     # Create boxplot
     plt.figure(figsize=(10, 6))
     plt.boxplot(data, tick_labels=labels, showfliers=False)  # Updated 'labels' to 'tick_labels'
-    plt.ylabel('Spread Size')
-    plt.title(f'Spread Size Distribution by Node Group for Node ID {node_id}')
-    plt.grid(axis='y')
+    plt.ylabel("Spread Size")
+    plt.title(f"Spread Size Distribution by Node Group for Node ID {node_id}")
+    plt.grid(axis="y")
     plt.tight_layout()
     # Save the plot as a PNG file in the graphs directory
     plt.savefig(os.path.join(GRAPHS_DIR, f"{node_id}_boxplot.png"))
@@ -476,6 +457,7 @@ def visualize_results(
 # =============================================================================
 # Function to process a single node_id
 # =============================================================================
+
 
 def process_node_id(node_id: int, summary_data: List[dict]) -> None:
     """
@@ -502,6 +484,19 @@ def process_node_id(node_id: int, summary_data: List[dict]) -> None:
         betweenness = nx.betweenness_centrality(G)
         closeness = nx.closeness_centrality(G)
 
+        # save node properties for analysis:
+        node_prop = pd.DataFrame(
+            {
+                "Node": list(degrees.keys()),
+                "Degree": list(degrees.values()),
+                "Clustering Coefficient": [clustering_coeffs[node] for node in degrees.keys()],
+                "Betweenness": [betweenness[node] for node in degrees.keys()],
+                "Closeness": [closeness[node] for node in degrees.keys()],
+            }
+        )
+        node_csv_path = os.path.join(RESULTS_DIR, f"{node_id}_node_properties.csv")
+        node_prop.to_csv(node_csv_path, index=False)
+
         # Perform community detection using Louvain algorithm
         partition = community_louvain.best_partition(G)
 
@@ -510,10 +505,7 @@ def process_node_id(node_id: int, summary_data: List[dict]) -> None:
 
         # Identify highly clustered communities based on network's average clustering
         network_avg_clustering = nx.average_clustering(G)
-        highly_clustered_communities = get_highly_clustered_communities(
-            community_clustering,
-            network_avg_clustering
-        )
+        highly_clustered_communities = get_highly_clustered_communities(community_clustering, network_avg_clustering)
 
         # Identify high-degree nodes (top 10%)
         high_degree_nodes = get_high_degree_nodes(degrees, percentile=90)
@@ -522,17 +514,11 @@ def process_node_id(node_id: int, summary_data: List[dict]) -> None:
             logging.warning(f"No high-degree nodes found for Node ID {node_id}.")
 
         # Identify bridge nodes: high-degree nodes within highly clustered communities
-        bridge_nodes = get_bridge_nodes(
-            high_degree_nodes,
-            partition,
-            highly_clustered_communities
-        )
+        bridge_nodes = get_bridge_nodes(high_degree_nodes, partition, highly_clustered_communities)
 
         # Identify high-degree nodes not in highly clustered communities
         high_degree_nodes_not_in_hcc = get_high_degree_nodes_not_in_highly_clustered_communities(
-            high_degree_nodes,
-            partition,
-            highly_clustered_communities
+            high_degree_nodes, partition, highly_clustered_communities
         )
 
         # Select random nodes equal to the number of bridge nodes
@@ -547,26 +533,25 @@ def process_node_id(node_id: int, summary_data: List[dict]) -> None:
         num_simulations = 100  # Number of simulation runs per seed node
         propagation_prob = 0.1  # Probability of propagation per edge
 
-        bridge_results = simulate_spread(
-            G,
-            bridge_nodes,
-            num_simulations=num_simulations,
-            propagation_prob=propagation_prob
-        ) if bridge_nodes else {}
+        bridge_results = (
+            simulate_spread(G, bridge_nodes, num_simulations=num_simulations, propagation_prob=propagation_prob)
+            if bridge_nodes
+            else {}
+        )
 
-        high_degree_results = simulate_spread(
-            G,
-            high_degree_nodes_not_in_hcc,
-            num_simulations=num_simulations,
-            propagation_prob=propagation_prob
-        ) if high_degree_nodes_not_in_hcc else {}
+        high_degree_results = (
+            simulate_spread(
+                G, high_degree_nodes_not_in_hcc, num_simulations=num_simulations, propagation_prob=propagation_prob
+            )
+            if high_degree_nodes_not_in_hcc
+            else {}
+        )
 
-        random_results = simulate_spread(
-            G,
-            random_nodes,
-            num_simulations=num_simulations,
-            propagation_prob=propagation_prob
-        ) if random_nodes else {}
+        random_results = (
+            simulate_spread(G, random_nodes, num_simulations=num_simulations, propagation_prob=propagation_prob)
+            if random_nodes
+            else {}
+        )
 
         # Aggregate spread sizes from simulations
         bridge_spread_sizes = collect_spread_sizes(bridge_results)
@@ -575,19 +560,13 @@ def process_node_id(node_id: int, summary_data: List[dict]) -> None:
 
         # Track whether this network has high degree nodes not in HCC
         has_high_degree_not_in_hcc = len(high_degree_nodes_not_in_hcc) > 0
-        
+
         # Add to summary data
-        summary_data.append({
-            "network_id": node_id,
-            "has_high_degree_not_in_hcc": has_high_degree_not_in_hcc
-        })
+        summary_data.append({"network_id": node_id, "has_high_degree_not_in_hcc": has_high_degree_not_in_hcc})
 
         # Perform statistical analysis on spread sizes
         stats = perform_statistical_analysis(
-            bridge_spread_sizes,
-            high_degree_spread_sizes,
-            random_spread_sizes,
-            has_high_degree_not_in_hcc
+            bridge_spread_sizes, high_degree_spread_sizes, random_spread_sizes, has_high_degree_not_in_hcc
         )
 
         # Calculate basic spread statistics for each group
@@ -596,12 +575,7 @@ def process_node_id(node_id: int, summary_data: List[dict]) -> None:
         random_stats = get_spread_statistics(random_spread_sizes)
 
         # Generate and save visualization of spread size distributions
-        visualize_results(
-            bridge_spread_sizes,
-            high_degree_spread_sizes,
-            random_spread_sizes,
-            node_id
-        )
+        visualize_results(bridge_spread_sizes, high_degree_spread_sizes, random_spread_sizes, node_id)
 
         # Initialize results data only with groups that have nodes
         results_data = {
@@ -610,7 +584,7 @@ def process_node_id(node_id: int, summary_data: List[dict]) -> None:
             "Median Spread Size": [],
             "Standard Deviation": [],
             "Minimum Spread Size": [],
-            "Maximum Spread Size": []
+            "Maximum Spread Size": [],
         }
 
         # Helper function to add stats for a group
@@ -619,11 +593,16 @@ def process_node_id(node_id: int, summary_data: List[dict]) -> None:
             print(f"\nChecking group stats for {group_name}:")
             print(f"Stats dict: {stats_dict}")
             print(f"Spread sizes length: {len(spread_sizes)}")
-            
+
             if spread_sizes:  # Only add the group if it has spread sizes
                 results_data["Group"].append(group_name)
-                for key in ["Average Spread Size", "Median Spread Size", "Standard Deviation", 
-                           "Minimum Spread Size", "Maximum Spread Size"]:
+                for key in [
+                    "Average Spread Size",
+                    "Median Spread Size",
+                    "Standard Deviation",
+                    "Minimum Spread Size",
+                    "Maximum Spread Size",
+                ]:
                     value = stats_dict[key]
                     print(f"Adding {key}: {value}")
                     results_data[key].append(value)
@@ -649,39 +628,39 @@ def process_node_id(node_id: int, summary_data: List[dict]) -> None:
             print("\nInput data state:")
             for key, value in data.items():
                 print(f"{key}: {value}")
-            
+
             # Check all lists have same length as groups
             expected_length = len(data["Group"])
             for key, value in data.items():
                 if len(value) != expected_length:
                     raise ValueError(f"Inconsistent length for {key}: expected {expected_length}, got {len(value)}")
-            
+
             # Check for any NaN or None values with detailed debugging
             for key, value in data.items():
                 if key != "Group":  # Skip group names
                     if any(pd.isna(x) for x in value):
                         print("\nDetailed state at failure:")
-                        print(f"\nFull results_data:")
+                        print("\nFull results_data:")
                         for k, v in data.items():
                             print(f"{k}: {v}")
-                        print(f"\nStats objects state:")
+                        print("\nStats objects state:")
                         print(f"bridge_stats: {bridge_stats}")
                         print(f"high_degree_stats: {high_degree_stats}")
                         print(f"random_stats: {random_stats}")
-                        print(f"\nSpread sizes state:")
+                        print("\nSpread sizes state:")
                         print(f"bridge_spread_sizes: {len(bridge_spread_sizes)} items")
                         print(f"high_degree_spread_sizes: {len(high_degree_spread_sizes)} items")
                         print(f"random_spread_sizes: {len(random_spread_sizes)} items")
-                        print(f"\nNode counts:")
+                        print("\nNode counts:")
                         print(f"bridge_nodes: {len(bridge_nodes)}")
                         print(f"high_degree_nodes_not_in_hcc: {len(high_degree_nodes_not_in_hcc)}")
                         print(f"random_nodes: {len(random_nodes)}")
-                        print(f"\nGraph info:")
+                        print("\nGraph info:")
                         print(f"Total nodes: {G.number_of_nodes()}")
                         print(f"Total edges: {G.number_of_edges()}")
                         print(f"Number of communities: {len(set(partition.values()))}")
                         print(f"Number of highly clustered communities: {len(highly_clustered_communities)}")
-                        
+
                         raise ValueError(f"Found NaN values in {key}: {value}\nCheck detailed state above.")
 
         def validate_stats_data(stats_list):
@@ -702,7 +681,7 @@ def process_node_id(node_id: int, summary_data: List[dict]) -> None:
             {
                 "Test": test_name,
                 "Statistic": stats.get(test_name, (np.nan, np.nan))[0],
-                "p-value": stats.get(test_name, (np.nan, np.nan))[1]
+                "p-value": stats.get(test_name, (np.nan, np.nan))[1],
             }
             for test_name in stats.keys()
         ]
@@ -732,39 +711,39 @@ def process_node_id(node_id: int, summary_data: List[dict]) -> None:
         stats_csv_path = os.path.join(RESULTS_DIR, f"{node_id}_statistical_tests.csv")
 
         # Save with specific float format to maintain precision
-        results_df.to_csv(results_csv_path, index=False, float_format='%.10f')
-        stats_df.to_csv(stats_csv_path, index=False, float_format='%.10f')
+        results_df.to_csv(results_csv_path, index=False, float_format="%.10f")
+        stats_df.to_csv(stats_csv_path, index=False, float_format="%.10f")
 
         # Verify files were written correctly
         try:
             # Read back and verify
             read_results = pd.read_csv(results_csv_path)
             read_stats = pd.read_csv(stats_csv_path)
-            
+
             def compare_dataframes(df1, df2, name):
                 """Compare DataFrames with tolerance for floating point numbers"""
                 if df1.shape != df2.shape:
                     raise ValueError(f"{name}: Shape mismatch {df1.shape} vs {df2.shape}")
-                
+
                 for col in df1.columns:
-                    if df1[col].dtype.kind in 'fc':  # float or complex
+                    if df1[col].dtype.kind in "fc":  # float or complex
                         if not np.allclose(df1[col].fillna(0), df2[col].fillna(0), rtol=1e-10, atol=1e-10):
                             print(f"Mismatch in {name} column {col}:")
                             print(f"Original:\n{df1[col]}")
                             print(f"Read back:\n{df2[col]}")
                             raise ValueError(f"{name}: Numerical mismatch in column {col}")
                     else:
-                        if not (df1[col].fillna('') == df2[col].fillna('')).all():
+                        if not (df1[col].fillna("") == df2[col].fillna("")).all():
                             print(f"Mismatch in {name} column {col}:")
                             print(f"Original:\n{df1[col]}")
                             print(f"Read back:\n{df2[col]}")
                             raise ValueError(f"{name}: Non-numerical mismatch in column {col}")
-            
+
             compare_dataframes(results_df, read_results, "Spread statistics")
             compare_dataframes(stats_df, read_stats, "Statistical tests")
-                
+
             logging.info(f"Successfully saved and verified results for Node ID {node_id}")
-            
+
         except Exception as e:
             logging.error(f"File verification failed for Node ID {node_id}: {str(e)}")
             print(f"File verification failed for Node ID {node_id}: {str(e)}")
@@ -783,10 +762,16 @@ def process_node_id(node_id: int, summary_data: List[dict]) -> None:
         # Create empty results files with headers to maintain consistency
         try:
             # Create empty spread statistics file
-            pd.DataFrame(columns=[
-                "Group", "Average Spread Size", "Median Spread Size",
-                "Standard Deviation", "Minimum Spread Size", "Maximum Spread Size"
-            ]).to_csv(os.path.join(RESULTS_DIR, f"{node_id}_spread_statistics.csv"), index=False)
+            pd.DataFrame(
+                columns=[
+                    "Group",
+                    "Average Spread Size",
+                    "Median Spread Size",
+                    "Standard Deviation",
+                    "Minimum Spread Size",
+                    "Maximum Spread Size",
+                ]
+            ).to_csv(os.path.join(RESULTS_DIR, f"{node_id}_spread_statistics.csv"), index=False)
 
             # Create empty statistical tests file
             pd.DataFrame(columns=["Test", "Statistic", "p-value"]).to_csv(
@@ -795,6 +780,7 @@ def process_node_id(node_id: int, summary_data: List[dict]) -> None:
             logging.info(f"Created empty result files for Node ID {node_id}")
         except Exception as write_error:
             logging.error(f"Failed to create empty result files for Node ID {node_id}: {str(write_error)}")
+
 
 # =============================================================================
 # Main Function to Process All Node IDs
@@ -807,13 +793,13 @@ def main() -> None:
     """
     node_ids = []
     summary_data = []  # List to collect summary data for all networks
-    
+
     # Iterate over all files in the data directory
     for filename in os.listdir(DATA_DIR):
         if filename.endswith(".edges"):
             try:
                 # Extract node_id by splitting the filename
-                node_id = int(filename.split('.')[0])
+                node_id = int(filename.split(".")[0])
                 node_ids.append(node_id)
             except ValueError:
                 # Log a warning if the filename does not start with an integer node_id
